@@ -1,23 +1,26 @@
+# ------------------------------------------------------
+# Created and developed by Pawel Gasiewski
+# Politechnika Poznanska, WIiT, EiT 17/18, August 2020
+# Under supervision of Ph.D. Adrian Dziembowski
+# ------------------------------------------------------
+
 from skimage.exposure import rescale_intensity
 import numpy as np
 import cv2 as cv
-# import argparse
 
-im = cv.imread('pokemon1.jpg')
-b, g, r = cv.split(im)
-gray = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
-
-
-
+im = cv.imread('bad_contrast.jpg')
 
 # Kernel masks declarations
 vsob_k = np.array(([1, 0, -1], [2, 0, -2], [1, 0, -1]), dtype='int')
 hsob_k = np.array(([1, 2, 1], [0, 0, 0], [-1, -2, -1]), dtype='int')
-hpf1_k = np.array(([0, -1, 0], [-1, 5, -1], [0, -1, 0]), dtype='int')
-hpf2_k = np.array(([1, -2, 1], [-2, 5, -2], [1, -2, 1]), dtype='int')
-lpf1_k = np.ones([3, 3], dtype='float') * (1.0/(3.0*3.0))
-lpf2_k = np.ones([5, 5], dtype='float') * (1.0/(5.0*5.0))
-gauss_k = np.array(([1, 2, 1], [2, 4, 2], [1, 2, 1]), dtype='int')
+hpf1_k = np.array(([1, -2, 1], [-2, 5, -2], [1, -2, 1]), dtype='int')
+hpf2_k = np.array(([0, -1, 0], [-1, 5, -1], [0, -1, 0]), dtype='float')
+lpf1_k = np.ones([5, 5], dtype='float') * (1.0/(5.0*5.0))
+lpf2_k = np.ones([9, 9], dtype='float') * (1.0/(9.0*9.0))
+edge1_k = np.array(([0, -1, 0], [-1, 4, -1], [0, -1, 0]), dtype='int')
+edge2_k = np.array(([-1, -1, -1], [-1, 8, -1], [-1, -1, -1]), dtype='int')
+gauss_k = np.array(([1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, 36, 24, 6], [4, 16, 24, 16, 4], [1, 4, 6, 4, 1]),
+                   dtype='float') * (1.0/256.0)
 
 
 # Bank of kernels used to filtering - dictionary
@@ -28,6 +31,8 @@ kernels = {'hpf1': hpf1_k,
            'sobelx': hsob_k,
            'sobely': vsob_k,
            'gauss': gauss_k,
+           'edge1': edge1_k,
+           'edge2': edge2_k
            }
 
 
@@ -53,20 +58,36 @@ def convolution(image, kernel):
 # The whole trick is that in the line 7 we split our 3-dimensional array (width,height,rgb)
 # to 3 2-dimensional arrays containing color chromas!
 # Next, below we will filter each of those chromas patterns and merge them to obtain filtering an image in color.
-def rgb_conv(blue, green, red, kernel):
+def rgb_conv(image, kernel):
+    blue, green, red = cv.split(image)
     b1 = convolution(blue, kernel)
     g1 = convolution(green, kernel)
     r1 = convolution(red, kernel)
     return cv.merge((b1, g1, r1))
 
+# Returns numpy array of shape (width,height) - luma of an image separately
+def get_luma(image):
+    splitted = cv.cvtColor(image, cv.COLOR_BGR2YCrCb)
+    y, cr, cb = cv.split(splitted)
+    return y
 
-convout = rgb_conv(b, g, r, kernels['sobely'])
-cvout = cv.filter2D(im, -1, kernels['sobely'])
-cv.imshow('Original', im)
-cv.imshow("Convolution function", convout)
-cv.imshow("Filter2D openCV", cvout)
-cv.waitKey(0)
-cv.destroyAllWindows()
+
+def histogram_eq(image):
+    start = cv.cvtColor(image, cv.COLOR_BGR2YCrCb)
+    luma, cr, cb = cv.split(start)
+    lumax = np.max(luma)
+    lumin = np.min(luma)
+    width = luma.shape[0]
+    height = luma.shape[1]
+    lut = np.zeros([width, height])
+    for i in range(0, lut.shape[0]):
+        for j in range(0, lut.shape[1]):
+            lut[i, j] = (255.0/(lumax-lumin))*(luma[i, j]-lumin)
+    lut = lut.astype('uint8')
+    output = cv.merge((lut, cr, cb))
+    output = cv.cvtColor(output, cv.COLOR_YCR_CB2BGR)
+    return output
+
 
 
 
