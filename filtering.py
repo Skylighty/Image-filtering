@@ -8,8 +8,6 @@ from skimage.exposure import rescale_intensity
 import numpy as np
 import cv2 as cv
 
-im = cv.imread('bad_contrast.jpg')
-
 # Kernel masks declarations
 vsob_k = np.array(([1, 0, -1], [2, 0, -2], [1, 0, -1]), dtype='int')
 hsob_k = np.array(([1, 2, 1], [0, 0, 0], [-1, -2, -1]), dtype='int')
@@ -21,7 +19,6 @@ edge1_k = np.array(([0, -1, 0], [-1, 4, -1], [0, -1, 0]), dtype='int')
 edge2_k = np.array(([-1, -1, -1], [-1, 8, -1], [-1, -1, -1]), dtype='int')
 gauss_k = np.array(([1, 4, 6, 4, 1], [4, 16, 24, 16, 4], [6, 24, 36, 24, 6], [4, 16, 24, 16, 4], [1, 4, 6, 4, 1]),
                    dtype='float') * (1.0/256.0)
-
 
 # Bank of kernels used to filtering - dictionary
 kernels = {'hpf1': hpf1_k,
@@ -53,6 +50,7 @@ def convolution(image, kernel):
     output = rescale_intensity(output, in_range=(0, 255))
     output = (output * 255).astype('uint8')             # Rescale output values to 8 bit values
     return output
+# NOTE - adding padding is very important here, because we need to evaluate the values outside of original array
 
 
 # The whole trick is that in the line 7 we split our 3-dimensional array (width,height,rgb)
@@ -65,6 +63,7 @@ def rgb_conv(image, kernel):
     r1 = convolution(red, kernel)
     return cv.merge((b1, g1, r1))
 
+
 # Returns numpy array of shape (width,height) - luma of an image separately
 def get_luma(image):
     splitted = cv.cvtColor(image, cv.COLOR_BGR2YCrCb)
@@ -72,21 +71,26 @@ def get_luma(image):
     return y
 
 
-def histogram_eq(image):
-    start = cv.cvtColor(image, cv.COLOR_BGR2YCrCb)
-    luma, cr, cb = cv.split(start)
-    lumax = np.max(luma)
-    lumin = np.min(luma)
-    width = luma.shape[0]
-    height = luma.shape[1]
-    lut = np.zeros([width, height])
-    for i in range(0, lut.shape[0]):
-        for j in range(0, lut.shape[1]):
-            lut[i, j] = (255.0/(lumax-lumin))*(luma[i, j]-lumin)
-    lut = lut.astype('uint8')
-    output = cv.merge((lut, cr, cb))
-    output = cv.cvtColor(output, cv.COLOR_YCR_CB2BGR)
-    return output
+# Executes filtration by using opencv built-in function filter2d for time comparison
+def built_in_filter(image, kernel):
+    return cv.filter2D(image, -1, kernel)
+
+
+# Same filtering but not rgb, just greyscale - time is comparably inefficient
+def greyscale_filtering(image, kernel):
+    image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    return convolution(image, kernel)
+
+
+#    def histogram_creation(image):
+#    image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+#    width = image.shape[1]
+#    height = image.shape[2]
+#    values = [0] * 256
+#    for i in range(0, 255):
+#        values[i] = i
+#    for i in width:
+#        for j in height:
 
 
 

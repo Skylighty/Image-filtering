@@ -7,17 +7,18 @@
 # Importing necessary libraries and modules for PyQt5 GUI Framework
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
-from PyQt5.QtGui import *
+import time
 import os
 # Importing necessary libraries (np, opencv) and functions from filtering.py to work on
 # filtering.py script-file was also created by me, before GUI development.
-from filtering import np, cv, rgb_conv, kernels
+from filtering import cv, rgb_conv, kernels, built_in_filter, greyscale_filtering
 
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1003, 578)
+        MainWindow.resize(1003, 600)
+        MainWindow.setFixedSize(1003, 600)
         MainWindow.setStyleSheet("background-color: rgb(170,170,170);")
         self.img = cv.imread('basic.jpg') # Image in an OpenCV format - necessary for filtering
         self.img_path = 'basic.jpg'
@@ -124,6 +125,20 @@ class Ui_MainWindow(object):
         self.filter_type.setFont(font)
         self.filter_type.setObjectName("filter_type")
 
+        self.timing_conv_ev = QtWidgets.QLabel(self.centralwidget)
+        self.timing_conv_ev.setGeometry(QtCore.QRect(680, 480, 400, 20))
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.timing_conv_ev.setFont(font)
+        self.timing_conv_ev.setObjectName("timing_evaluation")
+
+        self.timing_built_ev = QtWidgets.QLabel(self.centralwidget)
+        self.timing_built_ev.setGeometry(QtCore.QRect(680, 500, 400, 20))
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.timing_built_ev.setFont(font)
+        self.timing_built_ev.setObjectName("timing_evaluation")
+
         self.image_pix = QtWidgets.QLabel(self.centralwidget)
         self.image_pix.setGeometry(QtCore.QRect(30, 22, 591, 451))
         self.image_pix.setText("")
@@ -131,6 +146,14 @@ class Ui_MainWindow(object):
         self.image_pix.setObjectName("image_pix")
         self.image_pix.setScaledContents(True)
         self.image_pix.setStyleSheet("border:2px solid rgb(0,0,0)")
+
+        self.info_note = QtWidgets.QLabel(self.centralwidget)
+        self.info_note.setGeometry(QtCore.QRect(150, 537, 350, 20))
+        font = QtGui.QFont()
+        font.setPointSize(12)
+        self.info_note.setFont(font)
+        self.info_note.setObjectName("info_note")
+        self.info_note.setStyleSheet("color: red;")
 
         # ------------------------- MENU ----------------------------
         MainWindow.setCentralWidget(self.centralwidget)
@@ -188,6 +211,9 @@ class Ui_MainWindow(object):
         self.edge2Button.setText(_translate("MainWindow", "Edge - stronger"))
         self.gaussButton.setText(_translate("MainWindow", "Gaussian"))
         self.filter_type.setText(_translate("MainWindow", "Filter type : "))
+        self.info_note.setText(_translate("MainWindow", "Info note - processing a filter may take a while!"))
+        self.timing_conv_ev.setText(_translate("MainWindow", "Time for conv algorithm: "))
+        self.timing_built_ev.setText(_translate("MainWindow", "Time for built-in algorithm: "))
         self.lpf1Button.setText(_translate("MainWindow", "LPF - weaker"))
         self.lpf2Button.setText(_translate("MainWindow", "LPF - stronger"))
         self.resetButton.setText(_translate("MainWindow", "Reset"))
@@ -202,7 +228,12 @@ class Ui_MainWindow(object):
 
     # Method projected for filtering an image after clicking one of buttons available
     def clicked_filter(self, image, mask):
+        start_conv = time.time()
         output = rgb_conv(image, mask)
+        stop_conv = time.time()
+        start_built = time.time()
+        x = built_in_filter(image, mask)
+        stop_built = time.time()
         filename = 'temp.jpg'
         cv.imwrite(filename, output)
         fn = 'temp.jpg'
@@ -211,6 +242,9 @@ class Ui_MainWindow(object):
         p.close()
         self.temp = output
         self.image_pix.setPixmap(QtGui.QPixmap('temp.jpg'))
+        self.timing_conv_ev.setText("Time for conv algorithm: " + str(stop_conv-start_conv)[:7] + "s")
+        self.timing_built_ev.setText("Time for built-in algorithm: " + str(stop_built-start_built)[:7] + "s")
+
 
     # Just resetting the normal image (for comparison or smth)
     def reset_img(self):
